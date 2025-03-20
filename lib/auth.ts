@@ -109,11 +109,12 @@ export async function loginAction(formData: FormData) {
       employeeId: employee.id, // Añadir el ID del empleado
     }
 
-    // Guardar en cookie
-    cookies().set("user_session", JSON.stringify(user), {
+    // Guardar en cookie con una duración más larga
+    const userCookies = await cookies();
+    userCookies.set("user_session", JSON.stringify(user), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24, // 1 día
+      maxAge: 60 * 60 * 24 * 7, // 7 días
       path: "/",
       sameSite: "lax",
     })
@@ -130,13 +131,14 @@ export async function loginAction(formData: FormData) {
 
 // Función de cierre de sesión como acción del servidor
 export async function logoutAction() {
-  cookies().delete("user_session")
+  const userCookies = await cookies();
+  userCookies.delete("user_session")
   redirect("/")
 }
 
 // Obtener usuario actual desde la cookie de sesión
 export async function getUser(): Promise<User | null> {
-  const sessionCookie = cookies().get("user_session")
+  const sessionCookie = (await cookies()).get("user_session")
 
   if (!sessionCookie?.value) {
     return null
@@ -164,6 +166,7 @@ export async function hasRole(role: UserRole): Promise<boolean> {
 
 // Función para logout
 export async function logout() {
-  cookies().delete("user_session")
+  const userCookies = await cookies();
+  userCookies.delete("user_session")
 }
 
