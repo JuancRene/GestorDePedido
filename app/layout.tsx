@@ -2,8 +2,9 @@ import type React from "react"
 import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { AuthProvider } from "./components/auth-provider"
 import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from "./components/auth-provider"
+import { ServiceWorkerRegistration } from "./components/service-worker-registration"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -24,6 +25,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <Toaster />
+          <ServiceWorkerRegistration />
         </AuthProvider>
       </body>
     </html>

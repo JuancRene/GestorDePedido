@@ -9,9 +9,18 @@ const roleRoutes = {
 }
 
 // Rutas públicas que no requieren autenticación
-const publicRoutes = ["/", "/api", "/_next", "/favicon.ico"]
+const publicRoutes = ["/", "/api", "/_next", "/favicon.ico", "/service-worker.js", "/manifest.json", "/offline.html"]
 
 export async function middleware(request: NextRequest) {
+  // Skip service worker and manifest requests
+  if (
+    request.nextUrl.pathname === "/service-worker.js" ||
+    request.nextUrl.pathname === "/manifest.json" ||
+    request.nextUrl.pathname === "/offline.html"
+  ) {
+    return NextResponse.next()
+  }
+
   // Verificar si la ruta es pública
   const isPublicRoute = publicRoutes.some(
     (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`),

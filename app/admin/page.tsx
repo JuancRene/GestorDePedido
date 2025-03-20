@@ -1,3 +1,5 @@
+"use client"
+
 import RoleGuard from "@/components/role-guard"
 
 export default function AdminPage() {

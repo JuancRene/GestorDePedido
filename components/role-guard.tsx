@@ -1,22 +1,23 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import type React from "react"
+
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase"
 
 interface RoleGuardProps {
-  children: ReactNode
+  children: React.ReactNode
   allowedRoles: string[]
-  fallbackUrl?: string
 }
 
-export default function RoleGuard({ children, allowedRoles, fallbackUrl = "/login" }: RoleGuardProps) {
+export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
+  const [authorized, setAuthorized] = useState(false)
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function checkUserRole() {
+    const checkAuth = async () => {
       try {
         const supabase = createClient()
 
@@ -26,49 +27,51 @@ export default function RoleGuard({ children, allowedRoles, fallbackUrl = "/logi
         } = await supabase.auth.getSession()
 
         if (!session) {
-          router.push(fallbackUrl)
+          router.push("/login")
           return
         }
 
-        // Obtener el rol del usuario desde los metadatos de la sesión
-        const userRole = session.user.user_metadata?.role || "employee"
+        // Obtener el rol del usuario
+        const { data: userData, error } = await supabase.from("users").select("role").eq("id", session.user.id).single()
 
-        // Verificar si el rol del usuario está en los roles permitidos
-        const hasAccess = allowedRoles.includes(userRole)
+        if (error || !userData) {
+          console.error("Error al obtener el rol del usuario:", error)
+          router.push("/login")
+          return
+        }
 
-        setIsAuthorized(hasAccess)
+        const userRole = userData.role || "employee"
 
-        if (!hasAccess) {
-          // Determinar la URL de redirección basada en el rol del usuario
-          let redirectUrl = "/login"
-
+        // Verificar si el rol está permitido
+        if (allowedRoles.includes(userRole)) {
+          setAuthorized(true)
+        } else {
+          // Redirigir según el rol
           if (userRole === "admin") {
-            redirectUrl = "/admin"
+            router.push("/admin")
           } else if (userRole === "chef") {
-            redirectUrl = "/cocina"
-          } else if (userRole === "employee") {
-            redirectUrl = "/employee"
+            router.push("/cocina")
+          } else {
+            router.push("/employee")
           }
-
-          router.push(redirectUrl)
         }
       } catch (error) {
-        console.error("Error al verificar el rol del usuario:", error)
-        router.push(fallbackUrl)
+        console.error("Error al verificar la autorización:", error)
+        router.push("/login")
       } finally {
-        setIsLoading(false)
+        setLoading(false)
       }
     }
 
-    checkUserRole()
-  }, [router, allowedRoles, fallbackUrl])
+    checkAuth()
+  }, [allowedRoles, router])
 
   // Mostrar un indicador de carga mientras se verifica la autorización
-  if (isLoading) {
+  if (loading) {
     return <div className="flex justify-center items-center min-h-screen">Cargando...</div>
   }
 
   // Renderizar los hijos solo si el usuario está autorizado
-  return isAuthorized ? <>{children}</> : null
+  return authorized ? <>{children}</> : null
 }
 

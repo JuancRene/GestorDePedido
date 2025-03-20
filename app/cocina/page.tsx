@@ -1,5 +1,6 @@
 "use client"
 
+import RoleGuard from "@/components/role-guard"
 import { Suspense } from "react"
 import { KitchenHeader } from "./kitchen-header"
 import { PendingOrders } from "./pending-orders"
@@ -9,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SortOrdersControl } from "./sort-orders-control"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import RoleGuard from "@/components/role-guard"
 
 export default function KitchenPage() {
   return (
@@ -89,7 +89,7 @@ export default function KitchenPage() {
   )
 }
 
-async function getUser() {
+function getUser() {
   return {
     username: "test",
   }
