@@ -12,12 +12,8 @@ const roleRoutes = {
 const publicRoutes = ["/", "/api", "/_next", "/favicon.ico", "/service-worker.js", "/manifest.json", "/offline.html"]
 
 export async function middleware(request: NextRequest) {
-  // Skip service worker and manifest requests
-  if (
-    request.nextUrl.pathname === "/service-worker.js" ||
-    request.nextUrl.pathname === "/manifest.json" ||
-    request.nextUrl.pathname === "/offline.html"
-  ) {
+  // Completely skip service worker requests
+  if (request.nextUrl.pathname === "/service-worker.js") {
     return NextResponse.next()
   }
 
@@ -83,8 +79,9 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public (public files)
+     * - service-worker.js (service worker)
      */
-    "/((?!_next/static|_next/image|favicon.ico|public).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public|service-worker.js).*)",
   ],
 }
 
