@@ -1,5 +1,6 @@
+"use client"
+
 import { Suspense } from "react"
-import { getUser } from "@/lib/auth"
 import { KitchenHeader } from "./kitchen-header"
 import { PendingOrders } from "./pending-orders"
 import { CompletedOrders } from "./completed-orders"
@@ -8,87 +9,90 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SortOrdersControl } from "./sort-orders-control"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import RoleGuard from "@/components/role-guard"
 
-export default async function KitchenPage() {
-  const user = await getUser()
-
-  if (!user) {
-    return null // This should be handled by middleware
-  }
-
+export default function KitchenPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      <KitchenHeader username={user.username} />
+    <RoleGuard allowedRoles={["admin", "chef"]}>
+      <div className="flex flex-col min-h-screen bg-gray-50">
+        <KitchenHeader username={getUser().username} />
 
-      <main className="flex-1 p-4 md:p-6 animate-fadeIn">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">Panel de Cocina</h1>
-              <p className="text-gray-500">Gestiona los pedidos y prepara los productos</p>
+        <main className="flex-1 p-4 md:p-6 animate-fadeIn">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+              <div>
+                <h1 className="text-2xl font-bold">Panel de Cocina</h1>
+                <p className="text-gray-500">Gestiona los pedidos y prepara los productos</p>
+              </div>
+              <SortOrdersControl />
             </div>
-            <SortOrdersControl />
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+              <div className="lg:col-span-3">
+                <PendingItemsSummary />
+              </div>
+              <div className="lg:col-span-1">
+                <Card className="bg-gradient-to-br from-primary-600 to-primary-700 text-white">
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-2">Resumen</h2>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span>Pedidos pendientes</span>
+                        <span className="text-xl font-bold">12</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Pedidos completados</span>
+                        <span className="text-xl font-bold">24</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Tiempo promedio</span>
+                        <span className="text-xl font-bold">18 min</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            <Tabs defaultValue="pending" className="w-full">
+              <TabsList className="mb-4 bg-white p-1 rounded-lg border">
+                <TabsTrigger
+                  value="pending"
+                  className="text-lg data-[state=active]:bg-primary-600 data-[state=active]:text-white"
+                >
+                  Pedidos Pendientes
+                </TabsTrigger>
+                <TabsTrigger
+                  value="completed"
+                  className="text-lg data-[state=active]:bg-primary-600 data-[state=active]:text-white"
+                >
+                  Pedidos Realizados
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="pending" className="animate-slideUp">
+                <Suspense fallback={<OrdersSkeleton count={6} />}>
+                  <PendingOrders />
+                </Suspense>
+              </TabsContent>
+
+              <TabsContent value="completed" className="animate-slideUp">
+                <Suspense fallback={<OrdersSkeleton count={6} />}>
+                  <CompletedOrders />
+                </Suspense>
+              </TabsContent>
+            </Tabs>
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-            <div className="lg:col-span-3">
-              <PendingItemsSummary />
-            </div>
-            <div className="lg:col-span-1">
-              <Card className="bg-gradient-to-br from-primary-600 to-primary-700 text-white">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-2">Resumen</h2>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span>Pedidos pendientes</span>
-                      <span className="text-xl font-bold">12</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Pedidos completados</span>
-                      <span className="text-xl font-bold">24</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Tiempo promedio</span>
-                      <span className="text-xl font-bold">18 min</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          <Tabs defaultValue="pending" className="w-full">
-            <TabsList className="mb-4 bg-white p-1 rounded-lg border">
-              <TabsTrigger
-                value="pending"
-                className="text-lg data-[state=active]:bg-primary-600 data-[state=active]:text-white"
-              >
-                Pedidos Pendientes
-              </TabsTrigger>
-              <TabsTrigger
-                value="completed"
-                className="text-lg data-[state=active]:bg-primary-600 data-[state=active]:text-white"
-              >
-                Pedidos Realizados
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="pending" className="animate-slideUp">
-              <Suspense fallback={<OrdersSkeleton count={6} />}>
-                <PendingOrders />
-              </Suspense>
-            </TabsContent>
-
-            <TabsContent value="completed" className="animate-slideUp">
-              <Suspense fallback={<OrdersSkeleton count={6} />}>
-                <CompletedOrders />
-              </Suspense>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </RoleGuard>
   )
+}
+
+async function getUser() {
+  return {
+    username: "test",
+  }
 }
 
 function OrdersSkeleton({ count = 3 }: { count?: number }) {
