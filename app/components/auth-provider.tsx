@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return
 
-    const isAuthRoute = pathname === "/login"
+    const isAuthRoute = pathname === "/"
 
     if (!user && !isAuthRoute) {
       router.push("/login")
@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supabase = createClient()
       await supabase.auth.signOut()
       setUser(null)
-      router.push("/login")
+      router.push("/")
     } catch (error) {
       console.error("Error logging out:", error)
     }
