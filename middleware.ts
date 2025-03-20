@@ -12,8 +12,17 @@ const roleRoutes = {
 const publicRoutes = ["/", "/api", "/_next", "/favicon.ico", "/service-worker.js", "/manifest.json", "/offline.html"]
 
 export async function middleware(request: NextRequest) {
-  // Completely skip service worker requests
-  if (request.nextUrl.pathname === "/service-worker.js") {
+  // Skip API routes
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.next()
+  }
+
+  // Skip service worker and manifest requests
+  if (
+    request.nextUrl.pathname === "/service-worker.js" ||
+    request.nextUrl.pathname === "/manifest.json" ||
+    request.nextUrl.pathname === "/offline.html"
+  ) {
     return NextResponse.next()
   }
 
@@ -27,7 +36,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Verificar la sesión a través de las cookies
-  const authCookie = request.cookies.get("supabase-auth-token")
+  const authCookie = request.cookies.get("user_session")
 
   if (!authCookie) {
     // Si no hay cookie de autenticación, redirigir al login
@@ -36,19 +45,15 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Obtener el token JWT de la cookie
-    const tokenData = JSON.parse(authCookie.value)
-    const token = tokenData[1] // El token está en la posición 1 del array
+    // Parse the user session cookie
+    const user = JSON.parse(authCookie.value)
 
-    if (!token) {
-      throw new Error("Token no encontrado")
+    if (!user || !user.role) {
+      throw new Error("Invalid user session")
     }
 
-    // Decodificar el token JWT para obtener la información del usuario
-    const payload = JSON.parse(atob(token.split(".")[1]))
-
-    // Obtener el rol del usuario desde los metadatos del token
-    const userRole = payload.user_metadata?.role || "employee"
+    // Get the user role
+    const userRole = user.role
 
     // Verificar si el usuario tiene acceso a la ruta solicitada
     const allowedRoutes = roleRoutes[userRole as keyof typeof roleRoutes] || []
@@ -79,9 +84,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public (public files)
-     * - service-worker.js (service worker)
      */
-    "/((?!_next/static|_next/image|favicon.ico|public|service-worker.js).*)",
+    "/((?!_next/static|_next/image|favicon.ico|public).*)",
   ],
 }
 

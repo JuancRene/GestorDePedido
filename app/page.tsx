@@ -11,7 +11,6 @@ import { Utensils, User, Lock, Loader2, AlertCircle, Eye, EyeOff } from "lucide-
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { loginAction } from "@/lib/auth"
-import { AuthDebug } from "./components/auth-debug"
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -22,19 +21,21 @@ export default function LoginPage() {
   const [redirecting, setRedirecting] = useState(false)
   const router = useRouter()
 
-  // Check if user is already logged in
+  // Check if user is already logged in on component mount
   useEffect(() => {
+    // Check if we have a session cookie
     const checkSession = async () => {
       try {
-        // Check if we have a user session cookie
-        const cookies = document.cookie.split(";")
-        const hasSession = cookies.some((cookie) => cookie.trim().startsWith("user_session="))
+        const response = await fetch("/api/auth/check-session", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        })
 
-        if (hasSession) {
-          // If we have a session, try to get the user role from localStorage
-          const storedRole = localStorage.getItem("user_role")
-          if (storedRole) {
-            redirectToRolePage(storedRole)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.authenticated && data.role) {
+            // Force redirect based on role
+            forceRedirect(data.role)
           }
         }
       } catch (error) {
@@ -45,24 +46,17 @@ export default function LoginPage() {
     checkSession()
   }, [])
 
-  // Function to redirect based on role
-  const redirectToRolePage = (role: string) => {
-    setRedirecting(true)
-    console.log(`Redirecting to ${role} dashboard...`)
+  // Function to force a hard redirect
+  const forceRedirect = (role: string) => {
+    console.log(`Force redirecting to ${role} dashboard...`)
 
-    // Store the role in localStorage for future reference
-    localStorage.setItem("user_role", role)
-
-    // Redirect based on role
+    // Use window.location for a hard redirect
     if (role === "cocina") {
-      router.push("/cocina")
+      window.location.href = "/cocina"
     } else if (role === "admin") {
-      router.push("/admin")
+      window.location.href = "/admin"
     } else if (role === "empleado") {
-      router.push("/empleado")
-    } else {
-      setError("Rol de usuario desconocido")
-      setRedirecting(false)
+      window.location.href = "/empleado"
     }
   }
 
@@ -70,6 +64,7 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setRedirecting(false)
 
     // Validación del lado del cliente
     if (!username.trim()) {
@@ -95,9 +90,13 @@ export default function LoginPage() {
       if (result.success) {
         // Log the successful login and role
         console.log(`Login successful. Role: ${result.role}`)
+        setRedirecting(true)
 
-        // Redirect based on role
-        redirectToRolePage(result.role)
+        // Use a timeout to ensure the cookie is set before redirecting
+        setTimeout(() => {
+          // Force redirect based on role
+          forceRedirect(result.role)
+        }, 1000)
       } else {
         setError(result.message || "Error de autenticación")
         setLoading(false)
@@ -197,7 +196,7 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   className="w-full py-6 text-lg bg-primary-600 hover:bg-primary-700 transition-all btn-effect"
-                  disabled={loading}
+                  disabled={loading || redirecting}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -217,9 +216,6 @@ export default function LoginPage() {
           </CardFooter>
         </Card>
       </div>
-
-      {/* Add the debug component */}
-      <AuthDebug />
     </div>
   )
 }
