@@ -1,13 +1,9 @@
 "use client"
 
-import { createClient } from "@/lib/supabase-browser"
+import { createClient } from "@/lib/supabase"
 import { toast } from "@/hooks/use-toast"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { safeLocalStorage } from "./safe-storage"
-
-// Crear una instancia del cliente de Supabase
-const supabase = createClient()
 
 // Tipos de eventos que podemos sincronizar
 export type SyncEventType = "DATE_FORMAT_UPDATE" | "ORDER_UPDATE" | "PRODUCT_UPDATE" | "CLIENT_UPDATE" | "SYSTEM_UPDATE"
@@ -29,12 +25,12 @@ const generateDeviceId = () => {
   }
 
   // Usar un ID existente si ya está almacenado
-  const existingId = safeLocalStorage.getItem("device_id")
+  const existingId = localStorage.getItem("device_id")
   if (existingId) return existingId
 
   // Generar un nuevo ID si no existe
   const newId = `device_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-  safeLocalStorage.setItem("device_id", newId)
+  localStorage.setItem("device_id", newId)
   return newId
 }
 
@@ -49,6 +45,7 @@ export const sendSyncEvent = async (type: SyncEventType, data: any) => {
   }
 
   try {
+    const supabase = createClient()
     const event: Omit<SyncEvent, "id"> = {
       type,
       data,
@@ -64,40 +61,9 @@ export const sendSyncEvent = async (type: SyncEventType, data: any) => {
       return false
     }
 
-    // Ocasionalmente limpiar eventos antiguos (1% de probabilidad)
-    if (Math.random() < 0.01) {
-      cleanOldSyncEvents().catch((err) => console.error("Error al limpiar eventos antiguos:", err))
-    }
-
     return true
   } catch (error) {
     console.error("Error al enviar evento de sincronización:", error)
-    return false
-  }
-}
-
-// Función para limpiar eventos antiguos
-export const cleanOldSyncEvents = async () => {
-  // No ejecutar en el servidor
-  if (typeof window === "undefined") {
-    return false
-  }
-
-  try {
-    console.log("Limpiando eventos de sincronización antiguos...")
-
-    // Llamar a la función de limpieza en la base de datos
-    const { error } = await supabase.rpc("clean_old_sync_events")
-
-    if (error) {
-      console.error("Error al limpiar eventos antiguos:", error)
-      return false
-    }
-
-    console.log("Eventos antiguos limpiados correctamente")
-    return true
-  } catch (error) {
-    console.error("Error al limpiar eventos antiguos:", error)
     return false
   }
 }
@@ -108,7 +74,13 @@ export function useSyncEvents(types: SyncEventType[] = []) {
   const [lastEvent, setLastEvent] = useState<SyncEvent | null>(null)
 
   useEffect(() => {
+    // No ejecutar en el servidor
+    if (typeof window === "undefined") {
+      return
+    }
+
     // Suscribirse a los eventos de sincronización
+    const supabase = createClient()
     const channel = supabase
       .channel("sync_events_channel")
       .on(

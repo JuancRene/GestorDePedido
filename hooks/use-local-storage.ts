@@ -1,17 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { storage } from "@/lib/storage"
 
 export function useLocalStorage<T>(key: string, initialValue: T) {
   // Estado para almacenar nuestro valor
   const [storedValue, setStoredValue] = useState<T>(initialValue)
 
-  // Inicializar con el valor almacenado o el valor inicial
+  // Inicializar el estado con el valor de localStorage
   useEffect(() => {
     try {
-      if (typeof window !== "undefined") {
-        const item = window.localStorage.getItem(key)
-        setStoredValue(item ? JSON.parse(item) : initialValue)
+      const item = storage.getItem(key)
+      if (item) {
+        setStoredValue(JSON.parse(item))
       }
     } catch (error) {
       console.error(error)
@@ -25,13 +26,11 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       // Permitir que el valor sea una función para seguir el mismo patrón que useState
       const valueToStore = value instanceof Function ? value(storedValue) : value
 
-      // Guardar el estado
+      // Guardar en el estado
       setStoredValue(valueToStore)
 
       // Guardar en localStorage
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore))
-      }
+      storage.setItem(key, JSON.stringify(valueToStore))
     } catch (error) {
       console.error(error)
     }

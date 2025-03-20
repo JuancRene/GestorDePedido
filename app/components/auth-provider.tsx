@@ -2,31 +2,21 @@
 
 import type React from "react"
 
-import { usePathname, useRouter } from "next/navigation"
-import { createContext, useContext, useEffect, useState } from "react"
-import { useLocalStorage } from "@/hooks/use-local-storage"
+import { createContext, useContext, useState, useEffect } from "react"
+import { useRouter, usePathname } from "next/navigation"
+import { createClient } from "@/lib/supabase"
 
-// Credenciales hardcoded
-const CREDENTIALS = {
-  admin: {
-    username: "admin",
-    password: "admin123",
-  },
-  empleado: {
-    username: "empleado",
-    password: "empleado123",
-  },
-  cocina: {
-    username: "cocina",
-    password: "cocina123",
-  },
+type User = {
+  id: string
+  email: string
+  role: string
 }
 
 type AuthContextType = {
-  isAuthenticated: boolean
-  login: (username: string, password: string) => boolean
-  logout: () => void
-  userRole: string | null
+  user: User | null
+  login: (email: string, password: string) => Promise<boolean>
+  logout: () => Promise<void>
+  loading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -34,71 +24,104 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth debe usarse dentro de un AuthProvider")
   }
   return context
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useLocalStorage("isAuthenticated", false)
-  const [userRole, setUserRole] = useLocalStorage("userRole", null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
 
-  // Verificar credenciales
-  const login = (username: string, password: string) => {
-    // Verificar credenciales de administrador
-    if (username === CREDENTIALS.admin.username && password === CREDENTIALS.admin.password) {
-      setIsAuthenticated(true)
-      setUserRole("admin")
-      return true
-    }
-
-    // Verificar credenciales de empleado
-    if (username === CREDENTIALS.empleado.username && password === CREDENTIALS.empleado.password) {
-      setIsAuthenticated(true)
-      setUserRole("empleado")
-      return true
-    }
-
-    // Verificar credenciales de cocina
-    if (username === CREDENTIALS.cocina.username && password === CREDENTIALS.cocina.password) {
-      setIsAuthenticated(true)
-      setUserRole("cocina")
-      return true
-    }
-
-    return false
-  }
-
-  const logout = () => {
-    setIsAuthenticated(false)
-    setUserRole(null)
-    router.push("/login")
-  }
-
+  // Verificar sesión al cargar
   useEffect(() => {
-    // Verificar autenticación al cargar
-    setIsLoading(true)
+    const checkSession = async () => {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase.auth.getSession()
 
-    // Simular un pequeño retraso para evitar parpadeos
-    const timer = setTimeout(() => {
-      if (!isAuthenticated && pathname !== "/login") {
-        router.push("/login")
-      } else if (isAuthenticated && pathname === "/login") {
-        router.push("/")
+        if (data.session) {
+          const { data: userData } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", data.session.user.id)
+            .single()
+
+          setUser({
+            id: data.session.user.id,
+            email: data.session.user.email || "",
+            role: userData?.role || "user",
+          })
+        }
+      } catch (error) {
+        console.error("Error checking session:", error)
+      } finally {
+        setLoading(false)
       }
-      setIsLoading(false)
-    }, 100)
+    }
 
-    return () => clearTimeout(timer)
-  }, [isAuthenticated, pathname, router])
+    checkSession()
+  }, [])
+
+  // Redireccionar según autenticación
+  useEffect(() => {
+    if (loading) return
+
+    const isAuthRoute = pathname === "/login"
+
+    if (!user && !isAuthRoute) {
+      router.push("/login")
+    } else if (user && isAuthRoute) {
+      router.push("/")
+    }
+  }, [user, loading, pathname, router])
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (error) throw error
+
+      if (data.user) {
+        const { data: userData } = await supabase.from("profiles").select("role").eq("id", data.user.id).single()
+
+        setUser({
+          id: data.user.id,
+          email: data.user.email || "",
+          role: userData?.role || "user",
+        })
+
+        return true
+      }
+
+      return false
+    } catch (error) {
+      console.error("Error logging in:", error)
+      return false
+    }
+  }
+
+  const logout = async (): Promise<void> => {
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      setUser(null)
+      router.push("/login")
+    } catch (error) {
+      console.error("Error logging out:", error)
+    }
+  }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, userRole }}>
-      {isLoading ? (
-        <div className="flex items-center justify-center min-h-screen">
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
+      {loading ? (
+        <div className="flex items-center justify-center h-screen">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
       ) : (
