@@ -2,8 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,46 +18,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
-  const router = useRouter()
-
-  // Check if user is already logged in on component mount
-  useEffect(() => {
-    // Check if we have a session cookie
-    const checkSession = async () => {
-      try {
-        const response = await fetch("/api/auth/check-session", {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          if (data.authenticated && data.role) {
-            // Force redirect based on role
-            forceRedirect(data.role)
-          }
-        }
-      } catch (error) {
-        console.error("Error checking session:", error)
-      }
-    }
-
-    checkSession()
-  }, [])
-
-  // Function to force a hard redirect
-  const forceRedirect = (role: string) => {
-    console.log(`Force redirecting to ${role} dashboard...`)
-
-    // Use window.location for a hard redirect
-    if (role === "cocina") {
-      window.location.href = "/cocina"
-    } else if (role === "admin") {
-      window.location.href = "/admin"
-    } else if (role === "empleado") {
-      window.location.href = "/empleado"
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -92,11 +51,32 @@ export default function LoginPage() {
         console.log(`Login successful. Role: ${result.role}`)
         setRedirecting(true)
 
-        // Use a timeout to ensure the cookie is set before redirecting
-        setTimeout(() => {
-          // Force redirect based on role
-          forceRedirect(result.role)
-        }, 1000)
+        // Store role in localStorage for persistence
+        localStorage.setItem("user_role", result.role)
+
+        // Create a form and submit it to force a server-side redirect
+        const form = document.createElement("form")
+        form.method = "POST"
+
+        // Set the action based on the role
+        if (result.role === "cocina") {
+          form.action = "/cocina"
+        } else if (result.role === "admin") {
+          form.action = "/admin"
+        } else if (result.role === "empleado") {
+          form.action = "/empleado"
+        }
+
+        // Add a hidden field with the role
+        const hiddenField = document.createElement("input")
+        hiddenField.type = "hidden"
+        hiddenField.name = "role"
+        hiddenField.value = result.role
+        form.appendChild(hiddenField)
+
+        // Add the form to the body and submit it
+        document.body.appendChild(form)
+        form.submit()
       } else {
         setError(result.message || "Error de autenticación")
         setLoading(false)
@@ -114,6 +94,11 @@ export default function LoginPage() {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword)
+  }
+
+  // Add a direct navigation button for emergencies
+  const emergencyRedirect = (path: string) => {
+    window.location.href = path
   }
 
   return (
@@ -135,6 +120,22 @@ export default function LoginPage() {
               <div className="flex flex-col items-center justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="mt-4 text-center">Redireccionando al panel de control...</p>
+                <div className="mt-6 space-y-2">
+                  <p className="text-sm text-gray-500">
+                    Si no eres redirigido automáticamente, haz clic en uno de estos enlaces:
+                  </p>
+                  <div className="flex justify-center space-x-4">
+                    <Button variant="outline" size="sm" onClick={() => emergencyRedirect("/admin")}>
+                      Admin
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => emergencyRedirect("/cocina")}>
+                      Cocina
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => emergencyRedirect("/empleado")}>
+                      Empleado
+                    </Button>
+                  </div>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">

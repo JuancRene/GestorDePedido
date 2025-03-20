@@ -26,6 +26,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Allow POST requests to role-specific routes
+  if (
+    request.method === "POST" &&
+    (request.nextUrl.pathname === "/admin" ||
+      request.nextUrl.pathname === "/cocina" ||
+      request.nextUrl.pathname === "/empleado")
+  ) {
+    return NextResponse.next()
+  }
+
   // Verificar si la ruta es pública
   const isPublicRoute = publicRoutes.some(
     (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`),

@@ -6,15 +6,12 @@ const STATIC_RESOURCES = ["/", "/favicon.ico", "/manifest.json", "/offline.html"
 
 // Install event - cache static assets
 self.addEventListener("install", (event) => {
+  self.skipWaiting() // Take control immediately
+
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(STATIC_RESOURCES)
-      })
-      .then(() => {
-        return self.skipWaiting()
-      }),
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_RESOURCES)
+    }),
   )
 })
 
@@ -35,7 +32,7 @@ self.addEventListener("activate", (event) => {
         )
       })
       .then(() => {
-        return self.clients.claim()
+        return self.clients.claim() // Take control of all clients
       }),
   )
 })
@@ -45,32 +42,46 @@ self.addEventListener("fetch", (event) => {
   // Skip non-GET requests
   if (event.request.method !== "GET") return
 
-  // Skip chrome-extension requests
-  if (event.request.url.startsWith("chrome-extension://")) return
-
-  // Skip cross-origin requests
+  // Skip chrome-extension and non-HTTP(S) requests completely
   const url = new URL(event.request.url)
-  if (url.origin !== self.location.origin) return
+  if (event.request.url.startsWith("chrome-extension:") || !event.request.url.startsWith("http")) {
+    return // Do nothing, let browser handle it
+  }
 
-  // Skip API and authentication requests
-  if (url.pathname.startsWith("/api/") || url.pathname.includes("supabase") || url.pathname.includes("auth")) {
+  // Skip API, authentication, and admin routes
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.includes("supabase") ||
+    url.pathname.includes("auth") ||
+    url.pathname.startsWith("/admin") ||
+    url.pathname.startsWith("/cocina") ||
+    url.pathname.startsWith("/employee")
+  ) {
+    return // Do nothing, let browser handle it
+  }
+
+  // For navigation requests (HTML pages)
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match("/offline.html")
+      }),
+    )
     return
   }
 
+  // For other requests (assets, etc.)
   event.respondWith(
-    caches.match(event.request).then((response) => {
+    caches.match(event.request).then((cachedResponse) => {
       // Return cached response if found
-      if (response) {
-        return response
+      if (cachedResponse) {
+        return cachedResponse
       }
 
-      // Clone the request
-      const fetchRequest = event.request.clone()
-
-      // Make network request
-      return fetch(fetchRequest)
+      // Otherwise, fetch from network
+      return fetch(event.request)
         .then((response) => {
-          // Check if valid response
+          // Don't cache if not a valid response
           if (!response || response.status !== 200 || response.type !== "basic") {
             return response
           }
@@ -78,23 +89,25 @@ self.addEventListener("fetch", (event) => {
           // Clone the response
           const responseToCache = response.clone()
 
-          // Cache the response
+          // Cache the response for future
           caches.open(CACHE_NAME).then((cache) => {
-            // Don't cache auth-related responses
-            if (!event.request.url.includes("auth")) {
-              cache.put(event.request, responseToCache)
-            }
+            cache.put(event.request, responseToCache)
           })
 
           return response
         })
         .catch(() => {
-          // Fallback to offline page if network fails
-          if (event.request.mode === "navigate") {
-            return caches.match("/offline.html")
+          // If it's an image, return a placeholder
+          if (event.request.destination === "image") {
+            return new Response("", { status: 404 })
           }
         })
     }),
   )
+})
+
+// Handle errors
+self.addEventListener("error", (event) => {
+  console.error("Service worker error:", event.error)
 })
 
