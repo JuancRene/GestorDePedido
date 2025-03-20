@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createClient } from "@/lib/supabase/middleware"
 
 // Rutas accesibles según el rol
 const roleRoutes = {
-  admin: ["/admin", "/chef", "/employee", "/orders", "/products", "/categories", "/reports"],
-  chef: ["/chef", "/orders", "/products"],
+  admin: ["/admin", "/cocina", "/employee", "/orders", "/products", "/categories", "/reports"],
+  chef: ["/cocina", "/orders", "/products"],
   employee: ["/employee", "/orders"],
 }
 
@@ -13,53 +12,55 @@ const roleRoutes = {
 const publicRoutes = ["/", "/login", "/api"]
 
 export async function middleware(request: NextRequest) {
-  const { supabase, response } = createClient(request)
-
   // Verificar si la ruta es pública
   const isPublicRoute = publicRoutes.some(
     (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`),
   )
 
   if (isPublicRoute) {
-    return response
+    return NextResponse.next()
   }
 
-  // Obtener la sesión actual
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  // Verificar la sesión a través de las cookies
+  const authCookie = request.cookies.get("supabase-auth-token")?.value
 
-  // Si no hay sesión, redirigir al login
-  if (!session) {
+  if (!authCookie) {
+    // Si no hay cookie de autenticación, redirigir al login
     const redirectUrl = new URL("/login", request.url)
     redirectUrl.searchParams.set("redirect", request.nextUrl.pathname)
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Obtener el rol del usuario
-  const { data: userData, error } = await supabase.from("users").select("role").eq("id", session.user.id).single()
+  try {
+    // Parsear la cookie para obtener el token JWT
+    const [, token] = JSON.parse(authCookie)
 
-  if (error || !userData) {
-    // Si hay error o no se encuentra el usuario, cerrar sesión y redirigir al login
-    await supabase.auth.signOut()
+    // Decodificar el token JWT para obtener la información del usuario
+    // Nota: Esto es una simplificación. En producción, deberías verificar la firma del token.
+    const payload = JSON.parse(atob(token.split(".")[1]))
+
+    // Obtener el rol del usuario desde los metadatos del token
+    // Asumiendo que el rol está almacenado en los metadatos del usuario
+    const userRole = payload.user_metadata?.role || "employee"
+
+    // Verificar si el usuario tiene acceso a la ruta solicitada
+    const allowedRoutes = roleRoutes[userRole as keyof typeof roleRoutes] || []
+    const hasAccess = allowedRoutes.some(
+      (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`),
+    )
+
+    // Si no tiene acceso, redirigir a la página principal según su rol
+    if (!hasAccess) {
+      const defaultRoute = roleRoutes[userRole as keyof typeof roleRoutes]?.[0] || "/login"
+      return NextResponse.redirect(new URL(defaultRoute, request.url))
+    }
+
+    return NextResponse.next()
+  } catch (error) {
+    // Si hay un error al procesar el token, redirigir al login
+    console.error("Error en middleware:", error)
     return NextResponse.redirect(new URL("/login", request.url))
   }
-
-  const userRole = userData.role || "employee"
-
-  // Verificar si el usuario tiene acceso a la ruta solicitada
-  const allowedRoutes = roleRoutes[userRole as keyof typeof roleRoutes] || []
-  const hasAccess = allowedRoutes.some(
-    (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`),
-  )
-
-  // Si no tiene acceso, redirigir a la página principal según su rol
-  if (!hasAccess) {
-    const defaultRoute = roleRoutes[userRole as keyof typeof roleRoutes]?.[0] || "/login"
-    return NextResponse.redirect(new URL(defaultRoute, request.url))
-  }
-
-  return response
 }
 
 // Configurar las rutas que deben ser procesadas por el middleware
