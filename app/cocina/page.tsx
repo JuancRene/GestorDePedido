@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
+import Link from "next/link"
 
 export default function CocinaPage() {
   const [loading, setLoading] = useState(true)
@@ -12,27 +13,16 @@ export default function CocinaPage() {
     if (typeof window !== "undefined") {
       try {
         console.log("Cocina page loading...")
-
-        // Set a timeout to ensure we don't get stuck in loading
-        const timeoutId = setTimeout(() => {
-          if (loading) {
-            setError("Timeout loading dashboard. Please try refreshing the page.")
-            setLoading(false)
-          }
-        }, 10000) // 10 second timeout
-
-        // Attempt to render the page directly
-        setLoading(false)
-
-        // Clear timeout if we loaded successfully
-        return () => clearTimeout(timeoutId)
+        setTimeout(() => {
+          setLoading(false)
+        }, 1000)
       } catch (err) {
         console.error("Error in cocina page:", err)
         setError("An unexpected error occurred. Please try refreshing the page.")
         setLoading(false)
       }
     }
-  }, [loading])
+  }, [])
 
   if (loading) {
     return (
@@ -57,26 +47,39 @@ export default function CocinaPage() {
     )
   }
 
-  // Render a simple kitchen dashboard directly
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Panel de Cocina</h1>
-      <p>Bienvenido al panel de cocina. Aquí podrás gestionar los pedidos y productos.</p>
+    <div className="container mx-auto p-8">
+      <h1 className="text-3xl font-bold mb-6">Panel de Cocina</h1>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white p-4 rounded-md shadow">
-          <h2 className="text-lg font-semibold mb-2">Pedidos Pendientes</h2>
-          <p>Cargando pedidos...</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-4">Órdenes Pendientes</h2>
+          <p className="mb-4">Visualiza y gestiona las órdenes pendientes.</p>
+          <Link href="/cocina/pending-orders" className="text-primary hover:underline">
+            Ver órdenes pendientes →
+          </Link>
         </div>
 
-        <div className="bg-white p-4 rounded-md shadow">
-          <h2 className="text-lg font-semibold mb-2">Productos</h2>
-          <p>Cargando productos...</p>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold mb-4">Órdenes Completadas</h2>
+          <p className="mb-4">Historial de órdenes completadas.</p>
+          <Link href="/cocina/completed-orders" className="text-primary hover:underline">
+            Ver órdenes completadas →
+          </Link>
         </div>
       </div>
 
-      <div className="mt-4">
-        <button onClick={() => (window.location.href = "/")} className="px-4 py-2 bg-gray-200 rounded-md">
+      <div className="mt-8 text-center">
+        <button
+          onClick={() => {
+            document.cookie.split(";").forEach((c) => {
+              document.cookie = c.replace(/^ +/, "").replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
+            })
+            localStorage.clear()
+            window.location.href = "/"
+          }}
+          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+        >
           Cerrar Sesión
         </button>
       </div>

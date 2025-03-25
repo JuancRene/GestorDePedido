@@ -2,14 +2,14 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Utensils, User, Lock, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { loginAction } from "@/lib/auth"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -18,7 +18,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
-  const [showDebug, setShowDebug] = useState(false)
+
+  const supabase = createClientComponentClient()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -39,49 +40,41 @@ export default function LoginPage() {
       return
     }
 
-    // Crear FormData para enviar al servidor
-    const formData = new FormData()
-    formData.append("username", username)
-    formData.append("password", password)
-
     try {
-      const result = await loginAction(formData)
+      // Attempt to sign in with Supabase
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: username,
+        password: password,
+      })
 
-      if (result.success) {
-        // Log the successful login and role
-        console.log(`Login successful. Role: ${result.role}`)
-        setRedirecting(true)
+      if (signInError) {
+        throw signInError
+      }
+
+      if (data?.user) {
+        // Get the user's role from metadata
+        const role = data.user.user_metadata?.role || "empleado"
+        console.log(`Login successful. Role: ${role}`)
 
         // Store role in localStorage for persistence
-        localStorage.setItem("user_role", result.role)
+        localStorage.setItem("user_role", role)
 
-        // Use direct navigation for redirection
-        setTimeout(() => {
-          // Use direct links instead of window.location
-          const roleLinks = {
-            admin: document.createElement("a"),
-            cocina: document.createElement("a"),
-            empleado: document.createElement("a"),
-          }
+        setRedirecting(true)
 
-          roleLinks.admin.href = "/admin"
-          roleLinks.cocina.href = "/cocina"
-          roleLinks.empleado.href = "/empleado"
-
-          // Click the appropriate link based on role
-          if (result.role === "admin") {
-            document.body.appendChild(roleLinks.admin)
-            roleLinks.admin.click()
-          } else if (result.role === "cocina") {
-            document.body.appendChild(roleLinks.cocina)
-            roleLinks.cocina.click()
-          } else if (result.role === "empleado") {
-            document.body.appendChild(roleLinks.empleado)
-            roleLinks.empleado.click()
-          }
-        }, 1000)
+        // Redirect based on role
+        if (role === "admin") {
+          window.location.href = "/admin"
+        } else if (role === "cocina") {
+          window.location.href = "/cocina"
+        } else if (role === "empleado") {
+          window.location.href = "/empleado"
+        } else {
+          setError("Rol de usuario desconocido")
+          setLoading(false)
+          setRedirecting(false)
+        }
       } else {
-        setError(result.message || "Error de autenticación")
+        setError("No se pudo obtener la información del usuario")
         setLoading(false)
       }
     } catch (error) {
@@ -99,25 +92,10 @@ export default function LoginPage() {
     setShowPassword(!showPassword)
   }
 
-  // Direct navigation to role pages
+  // Direct navigation to role pages for debugging
   const navigateToRole = (role: string) => {
-    const link = document.createElement("a")
-    link.href = `/${role}`
-    document.body.appendChild(link)
-    link.click()
+    window.location.href = `/${role}`
   }
-
-  // Show/hide debug tools with a special key combination (Ctrl+Shift+D)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === "D") {
-        setShowDebug((prev) => !prev)
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [])
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -227,39 +205,6 @@ export default function LoginPage() {
                   )}
                 </Button>
               </form>
-            )}
-
-            {/* Debug tools - hidden by default, show with Ctrl+Shift+D */}
-            {showDebug && (
-              <div className="mt-8 p-4 border rounded-md bg-gray-100">
-                <h3 className="font-bold mb-2">Debug Tools</h3>
-                <div className="grid grid-cols-1 gap-2">
-                  <Button size="sm" variant="outline" onClick={() => navigateToRole("admin")}>
-                    Login as Admin
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => navigateToRole("cocina")}>
-                    Login as Cocina
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => navigateToRole("empleado")}>
-                    Login as Empleado
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => {
-                      document.cookie.split(";").forEach((c) => {
-                        document.cookie = c
-                          .replace(/^ +/, "")
-                          .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
-                      })
-                      localStorage.clear()
-                      window.location.reload()
-                    }}
-                  >
-                    Clear All Cookies & Storage
-                  </Button>
-                </div>
-              </div>
             )}
           </CardContent>
 
