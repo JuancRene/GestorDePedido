@@ -3,27 +3,27 @@ import { cookies } from "next/headers"
 
 export async function GET() {
   try {
-    // Get the session cookie
-    const sessionCookie = (await cookies()).get("user_session")
+    const sessionCookie = cookies().get("user_session")
 
     if (!sessionCookie?.value) {
-      return NextResponse.json({ authenticated: false }, { status: 401 })
+      return NextResponse.json({ authenticated: false })
     }
 
-    // Parse the session cookie
-    const user = JSON.parse(sessionCookie.value)
-
-    return NextResponse.json({
-      authenticated: true,
-      user: {
-        username: user.username,
+    try {
+      const user = JSON.parse(sessionCookie.value)
+      return NextResponse.json({
+        authenticated: true,
         role: user.role,
-        name: user.name || user.username,
-      },
-    })
+        username: user.username,
+        name: user.name,
+      })
+    } catch (error) {
+      console.error("Error al parsear la cookie de sesión:", error)
+      return NextResponse.json({ authenticated: false })
+    }
   } catch (error) {
     console.error("Error checking authentication:", error)
-    return NextResponse.json({ error: "Error checking authentication" }, { status: 500 })
+    return NextResponse.json({ authenticated: false })
   }
 }
 

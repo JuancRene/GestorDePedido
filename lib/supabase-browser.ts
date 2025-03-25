@@ -1,37 +1,18 @@
-"use client"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { Database } from "@/types/supabase"
 
-import { createClient as createSupabaseClient } from "@supabase/supabase-js"
-
-let supabaseClient: ReturnType<typeof createSupabaseClient> | null = null
-
-export function createClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Missing Supabase environment variables")
-  }
-
-  // Reutilizar la instancia del cliente para evitar múltiples conexiones
-  if (!supabaseClient) {
-    supabaseClient = createSupabaseClient(supabaseUrl, supabaseKey, {
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
+export const createClient = () => {
+  return createClientComponentClient<Database>({
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    options: {
       auth: {
-        persistSession: false, // No necesitamos persistir la sesión en el navegador
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        flowType: "pkce",
       },
-      global: {
-        fetch: (...args) => {
-          // Usar la API de caché del navegador para mejorar el rendimiento
-          return fetch(...args)
-        },
-      },
-    })
-  }
-
-  return supabaseClient
+    },
+  })
 }
 

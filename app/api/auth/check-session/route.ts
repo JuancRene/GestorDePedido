@@ -4,7 +4,7 @@ import { cookies } from "next/headers"
 export async function GET() {
   try {
     // Get the session cookie
-    const sessionCookie = (await cookies()).get("user_session")
+    const sessionCookie = cookies().get("user_session")
 
     if (!sessionCookie?.value) {
       return NextResponse.json({ authenticated: false }, { status: 200 })
