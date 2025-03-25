@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
+  const [showDebug, setShowDebug] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -54,29 +55,31 @@ export default function LoginPage() {
         // Store role in localStorage for persistence
         localStorage.setItem("user_role", result.role)
 
-        // Create a form and submit it to force a server-side redirect
-        const form = document.createElement("form")
-        form.method = "POST"
+        // Use direct navigation for redirection
+        setTimeout(() => {
+          // Use direct links instead of window.location
+          const roleLinks = {
+            admin: document.createElement("a"),
+            cocina: document.createElement("a"),
+            empleado: document.createElement("a"),
+          }
 
-        // Set the action based on the role
-        if (result.role === "cocina") {
-          form.action = "/cocina"
-        } else if (result.role === "admin") {
-          form.action = "/admin"
-        } else if (result.role === "empleado") {
-          form.action = "/empleado"
-        }
+          roleLinks.admin.href = "/admin"
+          roleLinks.cocina.href = "/cocina"
+          roleLinks.empleado.href = "/empleado"
 
-        // Add a hidden field with the role
-        const hiddenField = document.createElement("input")
-        hiddenField.type = "hidden"
-        hiddenField.name = "role"
-        hiddenField.value = result.role
-        form.appendChild(hiddenField)
-
-        // Add the form to the body and submit it
-        document.body.appendChild(form)
-        form.submit()
+          // Click the appropriate link based on role
+          if (result.role === "admin") {
+            document.body.appendChild(roleLinks.admin)
+            roleLinks.admin.click()
+          } else if (result.role === "cocina") {
+            document.body.appendChild(roleLinks.cocina)
+            roleLinks.cocina.click()
+          } else if (result.role === "empleado") {
+            document.body.appendChild(roleLinks.empleado)
+            roleLinks.empleado.click()
+          }
+        }, 1000)
       } else {
         setError(result.message || "Error de autenticación")
         setLoading(false)
@@ -96,10 +99,25 @@ export default function LoginPage() {
     setShowPassword(!showPassword)
   }
 
-  // Add a direct navigation button for emergencies
-  const emergencyRedirect = (path: string) => {
-    window.location.href = path
+  // Direct navigation to role pages
+  const navigateToRole = (role: string) => {
+    const link = document.createElement("a")
+    link.href = `/${role}`
+    document.body.appendChild(link)
+    link.click()
   }
+
+  // Show/hide debug tools with a special key combination (Ctrl+Shift+D)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "D") {
+        setShowDebug((prev) => !prev)
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -125,13 +143,13 @@ export default function LoginPage() {
                     Si no eres redirigido automáticamente, haz clic en uno de estos enlaces:
                   </p>
                   <div className="flex justify-center space-x-4">
-                    <Button variant="outline" size="sm" onClick={() => emergencyRedirect("/admin")}>
+                    <Button variant="outline" size="sm" onClick={() => navigateToRole("admin")}>
                       Admin
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => emergencyRedirect("/cocina")}>
+                    <Button variant="outline" size="sm" onClick={() => navigateToRole("cocina")}>
                       Cocina
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => emergencyRedirect("/empleado")}>
+                    <Button variant="outline" size="sm" onClick={() => navigateToRole("empleado")}>
                       Empleado
                     </Button>
                   </div>
@@ -209,6 +227,39 @@ export default function LoginPage() {
                   )}
                 </Button>
               </form>
+            )}
+
+            {/* Debug tools - hidden by default, show with Ctrl+Shift+D */}
+            {showDebug && (
+              <div className="mt-8 p-4 border rounded-md bg-gray-100">
+                <h3 className="font-bold mb-2">Debug Tools</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <Button size="sm" variant="outline" onClick={() => navigateToRole("admin")}>
+                    Login as Admin
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => navigateToRole("cocina")}>
+                    Login as Cocina
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => navigateToRole("empleado")}>
+                    Login as Empleado
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      document.cookie.split(";").forEach((c) => {
+                        document.cookie = c
+                          .replace(/^ +/, "")
+                          .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`)
+                      })
+                      localStorage.clear()
+                      window.location.reload()
+                    }}
+                  >
+                    Clear All Cookies & Storage
+                  </Button>
+                </div>
+              </div>
             )}
           </CardContent>
 

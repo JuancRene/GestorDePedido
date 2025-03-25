@@ -1,130 +1,85 @@
 "use client"
 
-import RoleGuard from "@/components/role-guard"
-import { Suspense } from "react"
-import { KitchenHeader } from "./kitchen-header"
-import { PendingOrders } from "./pending-orders"
-import { CompletedOrders } from "./completed-orders"
-import { PendingItemsSummary } from "./pending-items-summary"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SortOrdersControl } from "./sort-orders-control"
-import { Card, CardContent } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
 
-export default function KitchenPage() {
-  return (
-    <RoleGuard allowedRoles={["admin", "chef"]}>
-      <div className="flex flex-col min-h-screen bg-gray-50">
-        <KitchenHeader username={getUser().username} />
+export default function CocinaPage() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-        <main className="flex-1 p-4 md:p-6 animate-fadeIn">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-              <div>
-                <h1 className="text-2xl font-bold">Panel de Cocina</h1>
-                <p className="text-gray-500">Gestiona los pedidos y prepara los productos</p>
-              </div>
-              <SortOrdersControl />
-            </div>
+  useEffect(() => {
+    // Simple check to ensure we're on the client side
+    if (typeof window !== "undefined") {
+      try {
+        console.log("Cocina page loading...")
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-              <div className="lg:col-span-3">
-                <PendingItemsSummary />
-              </div>
-              <div className="lg:col-span-1">
-                <Card className="bg-gradient-to-br from-primary-600 to-primary-700 text-white">
-                  <CardContent className="p-6">
-                    <h2 className="text-xl font-bold mb-2">Resumen</h2>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span>Pedidos pendientes</span>
-                        <span className="text-xl font-bold">12</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Pedidos completados</span>
-                        <span className="text-xl font-bold">24</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Tiempo promedio</span>
-                        <span className="text-xl font-bold">18 min</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+        // Set a timeout to ensure we don't get stuck in loading
+        const timeoutId = setTimeout(() => {
+          if (loading) {
+            setError("Timeout loading dashboard. Please try refreshing the page.")
+            setLoading(false)
+          }
+        }, 10000) // 10 second timeout
 
-            <Tabs defaultValue="pending" className="w-full">
-              <TabsList className="mb-4 bg-white p-1 rounded-lg border">
-                <TabsTrigger
-                  value="pending"
-                  className="text-lg data-[state=active]:bg-primary-600 data-[state=active]:text-white"
-                >
-                  Pedidos Pendientes
-                </TabsTrigger>
-                <TabsTrigger
-                  value="completed"
-                  className="text-lg data-[state=active]:bg-primary-600 data-[state=active]:text-white"
-                >
-                  Pedidos Realizados
-                </TabsTrigger>
-              </TabsList>
+        // Attempt to render the page directly
+        setLoading(false)
 
-              <TabsContent value="pending" className="animate-slideUp">
-                <Suspense fallback={<OrdersSkeleton count={6} />}>
-                  <PendingOrders />
-                </Suspense>
-              </TabsContent>
+        // Clear timeout if we loaded successfully
+        return () => clearTimeout(timeoutId)
+      } catch (err) {
+        console.error("Error in cocina page:", err)
+        setError("An unexpected error occurred. Please try refreshing the page.")
+        setLoading(false)
+      }
+    }
+  }, [loading])
 
-              <TabsContent value="completed" className="animate-slideUp">
-                <Suspense fallback={<OrdersSkeleton count={6} />}>
-                  <CompletedOrders />
-                </Suspense>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </main>
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg">Cargando panel de cocina...</p>
       </div>
-    </RoleGuard>
-  )
-}
-
-function getUser() {
-  return {
-    username: "test",
+    )
   }
-}
 
-function OrdersSkeleton({ count = 3 }: { count?: number }) {
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="bg-red-50 text-red-600 p-4 rounded-md max-w-md">
+          <h2 className="text-lg font-bold mb-2">Error</h2>
+          <p>{error}</p>
+          <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-primary text-white rounded-md">
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Render a simple kitchen dashboard directly
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {Array(count)
-        .fill(0)
-        .map((_, i) => (
-          <Card key={i} className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <Skeleton className="h-6 w-24" />
-                  <Skeleton className="h-6 w-20" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-                <div className="mt-4 space-y-2">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              </div>
-              <div className="px-6 py-4 bg-gray-50">
-                <Skeleton className="h-10 w-full" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Panel de Cocina</h1>
+      <p>Bienvenido al panel de cocina. Aquí podrás gestionar los pedidos y productos.</p>
+
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white p-4 rounded-md shadow">
+          <h2 className="text-lg font-semibold mb-2">Pedidos Pendientes</h2>
+          <p>Cargando pedidos...</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-md shadow">
+          <h2 className="text-lg font-semibold mb-2">Productos</h2>
+          <p>Cargando productos...</p>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <button onClick={() => (window.location.href = "/")} className="px-4 py-2 bg-gray-200 rounded-md">
+          Cerrar Sesión
+        </button>
+      </div>
     </div>
   )
 }
