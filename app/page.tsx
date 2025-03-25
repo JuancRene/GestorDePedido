@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Utensils, User, Lock, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { loginAction } from "@/lib/auth"
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -18,8 +18,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
-
-  const supabase = createClientComponentClient()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -40,41 +38,40 @@ export default function LoginPage() {
       return
     }
 
+    // Crear FormData para enviar al servidor
+    const formData = new FormData()
+    formData.append("username", username)
+    formData.append("password", password)
+
     try {
-      // Attempt to sign in with Supabase
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: username,
-        password: password,
-      })
+      // Use our custom login action that queries the employees table
+      const result = await loginAction(formData)
 
-      if (signInError) {
-        throw signInError
-      }
-
-      if (data?.user) {
-        // Get the user's role from metadata
-        const role = data.user.user_metadata?.role || "empleado"
-        console.log(`Login successful. Role: ${role}`)
-
-        // Store role in localStorage for persistence
-        localStorage.setItem("user_role", role)
-
+      if (result.success) {
+        // Log the successful login and role
+        console.log(`Login successful. Role: ${result.role}`)
         setRedirecting(true)
 
-        // Redirect based on role
-        if (role === "admin") {
-          window.location.href = "/admin"
-        } else if (role === "cocina") {
-          window.location.href = "/cocina"
-        } else if (role === "empleado") {
-          window.location.href = "/empleado"
-        } else {
-          setError("Rol de usuario desconocido")
-          setLoading(false)
-          setRedirecting(false)
-        }
+        // Store role in localStorage for persistence
+        localStorage.setItem("user_role", result.role)
+
+        // Use direct navigation with a delay to ensure cookie is set
+        setTimeout(() => {
+          // Use direct window.location for navigation
+          if (result.role === "admin") {
+            window.location.href = "/admin"
+          } else if (result.role === "cocina") {
+            window.location.href = "/cocina"
+          } else if (result.role === "empleado") {
+            window.location.href = "/empleado"
+          } else {
+            setError("Rol de usuario desconocido")
+            setLoading(false)
+            setRedirecting(false)
+          }
+        }, 1000)
       } else {
-        setError("No se pudo obtener la información del usuario")
+        setError(result.message || "Error de autenticación")
         setLoading(false)
       }
     } catch (error) {
