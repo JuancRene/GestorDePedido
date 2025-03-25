@@ -16,35 +16,6 @@ const publicRoutes = [
 export async function middleware(request: NextRequest) {
   // TEMPORARY: Allow all access during debugging
   return NextResponse.next()
-
-  // The code below is disabled temporarily for debugging
-  /*
-  // Skip API routes
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    return NextResponse.next();
-  }
-  
-  // Skip service worker and manifest requests
-  if (
-    request.nextUrl.pathname === '/service-worker.js' ||
-    request.nextUrl.pathname === '/manifest.json' ||
-    request.nextUrl.pathname === '/offline.html'
-  ) {
-    return NextResponse.next();
-  }
-
-  // Verificar si la ruta es pública
-  const isPublicRoute = publicRoutes.some(
-    (route) => request.nextUrl.pathname === route || request.nextUrl.pathname.startsWith(`${route}/`),
-  )
-
-  if (isPublicRoute) {
-    return NextResponse.next()
-  }
-
-  // For now, allow all access to simplify debugging
-  return NextResponse.next();
-  */
 }
 
 // Configurar las rutas que deben ser procesadas por el middleware
